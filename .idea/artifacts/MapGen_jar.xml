@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="MapGen:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/MapGen_jar</output-path>
+    <root id="archive" name="MapGen.jar">
+      <element id="module-output" name="MapGen" />
+    </root>
+  </artifact>
+</component>

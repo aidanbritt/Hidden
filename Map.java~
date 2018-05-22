@@ -1,0 +1,799 @@
+import java.awt.Color;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import javax.imageio.ImageIO; 
+
+/**
+ *  TILE ID VALUES:
+ * 
+ *  00 - Empty     01 - Grass     02 - Water Source     03 - Water
+ *  
+ *  10 - Town     11 - City     12 - Castle / Keep      13 - Dungeon
+ * 
+ */
+public class Map
+{
+    private static int rowSize,colSize;
+    private static Sector map[][];
+    private static int size;
+    private static int waterAmt = 2;
+
+    private static BufferedImage grass,water,pond,beach,unknown;
+    private static BufferedImage shoreLeft1,shoreLeft2,shoreRight1,shoreRight2,shoreBottom1,shoreBottom2,shoreTop1,shoreTop2,shorePenTop,shorePenBot,shorePenRight,shorePenLeft,shoreHalfMidTop,shoreHalfMidRight,shoreHalfMidLeft,shoreHalfMidBot;
+    private static BufferedImage shoreBottomRight,shoreBottomLeft,shoreTopRight,shoreTopLeft;
+    private static BufferedImage shoreBottomRightConcave,shoreBottomLeftConcave,shoreTopRightConcave,shoreTopLeftConcave;
+
+    private static BufferedImage beachLeft1,beachLeft2,beachRight1,beachRight2,beachTop1,beachTop2,beachBot1,beachBot2,beachBotRight,beachBotLeft,beachTopRight,beachTopLeft;
+    private static BufferedImage beachPenLeft,beachPenRight,beachPenTop,beachPenBot;
+    public static void create(){
+        map = new Sector[rowSize+2][colSize+2];
+
+        for(int row = 0; row < rowSize; row++){
+            for(int col = 0; col < colSize; col++){
+                map[row][col] =  new Sector("grass");
+                System.out.println(map[row][col]);
+            }
+        }
+    }    
+
+    public static void generate(){
+        //Pass 1 ------------------------------------------------ Water Sources -----------------
+
+        for(int ws = 0; ws < (size * 10) - 1; ws++){
+            int randRow = (int)(Math.random()*rowSize); //Get random row
+            int randCol = (int)(Math.random()*colSize); //Get random col
+
+            map[randRow][randCol].setType("water_source"); //Set the tile to water source
+        }
+
+        //Pass 2 ------------------------------------------------ Water Fill --------------------
+
+        for(int row = 1; row < rowSize-1; row++){
+            for(int col = 1; col < colSize-1; col++){
+                if(map[row][col].isType("water_source")){ //If the tile is a water source
+                    int row2 = row;
+                    int col2 = col;
+                    //System.out.println(row+" "+col);
+
+                    for(int i = 0; i < (waterAmt); i++){
+                        if(row2 + 1 < rowSize)
+                            map[row2+1][col2].setType("water");             
+                        if(col2 + 1 < colSize)
+                            map[row2][col2+1].setType("water");
+                        if(row2 - 1 >= 0)
+                            map[row2-1][col2].setType("water");
+                        if(col2 - 1 >= 0)
+                            map[row2][col2-1].setType("water");
+                        map[row2][col2].setType("water");
+
+                        int random;    
+
+                        while(true){
+                            random=(int)(Math.random()*3)-1;
+                            row2 += random;
+                            if(row2 < rowSize && row2 >= 0)
+                                break;
+                        }
+                        while(true){
+                            random=(int)(Math.random()*3)-1;
+                            col2 += random;
+                            if(col2 < colSize && col2 >= 0)
+                                break;
+                        }
+
+                        //System.out.print(i+"\t");
+                        // System.out.println(" row2: "+row2+" col2: "+col2);
+                    }
+
+                }
+            }
+        }
+
+        for(int row = 1; row < rowSize-1; row++){
+            for(int col = 1; col < colSize-1; col++){
+                if(map[row][col].isType("water_source"))
+                    map[row][col].setName("water");
+            }
+        }
+
+        //Pass 3 ------------------------------------------------ Smooth Tiles -------------------
+        for(int row = 1; row < rowSize-1; row++){            
+            for(int col = 1; col < colSize-1; col++){              
+                if(map[row][col].isType("water")){
+                    //Shore Bottom Right
+                    if(map[row-1][col-1].isType("grass") && map[row-1][col].isType("water") && map[row][col-1].isType("water") && map[row+1][col-1].notType("grass") && map[row-1][col+1].notType("grass")){
+                        map[row][col].setType("shore_bottom_right");
+                        System.out.print(map[row][col]);
+                    }
+                    //Shore Bottom Right Concave
+                    if(map[row-1][col].isType("grass") && map[row][col-1].isType("grass") && map[row+1][col].notType("grass") && map[row][col+1].notType("grass"))
+                        map[row][col].setType("shore_bottom_right_concave");
+
+                    //Shore Bottom Left
+                    if(map[row-1][col+1].isType("grass") && map[row-1][col].isType("water") && map[row][col+1].isType("water") && map[row+1][col+1].notType("grass") && map[row-1][col-1].notType("grass"))
+                        map[row][col].setType("shore_bottom_left");
+
+                    //Shore Bottom Left Concave
+                    if(map[row+1][col].notType("grass") && map[row][col-1].notType("grass") && map[row][col+1].isType("grass") && map[row-1][col].isType("grass")) 
+                        map[row][col].setType("shore_bottom_left_concave");
+
+                    //Shore Top Left
+                    if(map[row+1][col+1].isType("grass") && map[row+1][col].isType("water") && map[row][col+1].isType("water") && map[row-1][col+1].notType("grass") && map[row+1][col-1].notType("grass"))
+                        map[row][col].setType("shore_top_left");
+
+                    //Shore Top Left Concave
+                    if(map[row+1][col].isType("grass") && map[row][col+1].isType("grass") && map[row-1][col].notType("grass") && map[row][col-1].notType("grass"))
+                        map[row][col].setType("shore_top_left_concave");
+
+                    //Shore Top Right
+                    if(map[row+1][col-1].isType("grass") && map[row+1][col].isType("water") && map[row][col-1].isType("water") && map[row+1][col+1].notType("grass") && map[row-1][col-1].notType("grass"))
+                        map[row][col].setType("shore_top_right");
+
+                    //Shore Top Right Concave
+                    if(map[row-1][col].notType("grass") && map[row][col+1].notType("grass") && map[row][col-1].isType("grass") && map[row+1][col].isType("grass")) 
+                        map[row][col].setType("shore_top_right_concave");
+
+                    //Shore Left        
+                    if(map[row][col-1].isType("water") && map[row+1][col].isType("water") && map[row-1][col].isType("water") && map[row][col+1].isType("grass")){
+                        int rand = (int) (Math.random()*2)+1;
+                        if(rand==1)
+                            map[row][col].setType("shore_left1");
+                        else
+                            map[row][col].setType("shore_left2");
+                    }
+
+                    //Shore Right.      
+                    if(map[row][col+1].isType("water") && map[row+1][col].isType("water") && map[row-1][col].isType("water") && map[row][col-1].isType("grass")){
+                        int rand = (int) (Math.random()*2)+1;
+                        if(rand==1)
+                            map[row][col].setType("shore_right1");
+                        else
+                            map[row][col].setType("shore_right2");
+                    }
+
+                    //Shore Bottom    
+                    if(map[row][col+1].isType("water") && map[row+1][col].isType("water") && map[row-1][col].isType("grass") && map[row][col-1].isType("water")){
+                        int rand = (int) (Math.random()*2)+1;
+                        if(rand==1)
+                            map[row][col].setType("shore_bottom1");
+                        else
+                            map[row][col].setType("shore_bottom2");
+                    }
+
+                    //Shore Top
+                    if(map[row][col+1].isType("water") && map[row-1][col].isType("water") && map[row+1][col].isType("grass") && map[row][col-1].isType("water")){
+                        int rand = (int) (Math.random()*2)+1;
+                        if(rand==1)
+                            map[row][col].setType("shore_top1");
+                        else
+                            map[row][col].setType("shore_top2");
+                    }
+
+                    //ShorePenTop
+                    if(map[row-1][col].isType("water") && map[row][col+1].isType("grass") && map[row][col-1].isType("grass") && map[row+1][col].isType("grass")) 
+                        map[row][col].setType("shore_pen_top");
+
+                    //ShorePenBot
+                    if(map[row+1][col].isType("water") && map[row][col+1].isType("grass") && map[row][col-1].isType("grass") && map[row-1][col].isType("grass")) 
+                        map[row][col].setType("shore_pen_bottom");
+
+                    //ShoreHalfMidTop
+                    if(map[row+1][col].isType("water") && map[row][col+1].isType("water") && map[row][col-1].isType("water") && map[row-1][col].isType("water") && map[row+1][col-1].isType("grass") && map[row+1][col+1].isType("grass")) 
+                        map[row][col].setType("shore_half_mid_top");
+
+                    //ShoreHalfMidBot
+                    if(map[row+1][col].isType("water") && map[row][col+1].isType("water") && map[row][col-1].isType("water") && map[row-1][col].isType("water") && map[row-1][col-1].isType("grass") && map[row-1][col+1].isType("grass")) 
+                        map[row][col].setType("shore_half_mid_bot");
+
+                    //ShorePenRight
+                    if(map[row][col+1].isType("water") && map[row+1][col].isType("grass") && map[row-1][col].isType("grass") && map[row][col-1].isType("grass")) 
+                        map[row][col].setType("shore_pen_right");
+
+                    //ShorePenLeft
+                    if(map[row][col-1].isType("water") && map[row+1][col].isType("grass") && map[row-1][col].isType("grass") && map[row][col+1].isType("grass")) 
+                        map[row][col].setType("shore_pen_left");
+
+                    //ShoreHalfMidRight
+                    if(map[row+1][col].isType("water") && map[row][col+1].isType("water") && map[row][col-1].isType("water") && map[row-1][col].isType("water") && map[row-1][col-1].isType("grass") && map[row+1][col-1].isType("grass")) 
+                        map[row][col].setType("shore_half_mid_right");
+
+                    //ShoreHalfMidLeft
+                    if(map[row+1][col].isType("water") && map[row][col+1].isType("water") && map[row][col-1].isType("water") && map[row-1][col].isType("water") && map[row-1][col+1].isType("grass") && map[row+1][col+1].isType("grass")) 
+                        map[row][col].setType("shore_half_mid_left");
+                }
+
+                //Pond
+                if(map[row][col].isType("water"))
+                    if(map[row+1][col].isType("grass") && map[row][col+1].isType("grass") && map[row][col-1].isType("grass") && map[row-1][col].isType("grass"))
+                        map[row][col].setType("pond");                           
+                //------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                //----------------------------------------------------------------------             Beach             -------------------------------------------------------------------------
+                //------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+                //Beach Left        
+                if(map[row][col].isType("grass")) //If tile is land
+                    if(map[row][col+1].isType("grass") && map[row+1][col].isType("grass") && map[row-1][col].isType("grass") && map[row][col-1].isType("water")){
+                        int rand = (int) (Math.random()*2)+1;
+                        if(rand==1)
+                            map[row][col].setType("beach_left1");
+                        else
+                            map[row][col].setType("beach_left2");
+                }
+
+                //Beach Right     
+                if(map[row][col].isType("grass")) //If tile is land
+                    if(map[row][col-1].isType("grass") && map[row+1][col].isType("grass") && map[row-1][col].isType("grass") && map[row][col+1].isType("water")){
+                        int rand = (int) (Math.random()*2)+1;
+                        if(rand==1)
+                            map[row][col].setType("beach_right1");
+                        else
+                            map[row][col].setType("beach_right2");
+                }
+
+                //Beach Top    
+                if(map[row][col].isType("grass")) //If tile is land
+                    if(map[row][col+1].isType("grass") && map[row+1][col].isType("grass") && map[row-1][col].isType("water") && map[row][col-1].isType("grass")){
+                        int rand = (int) (Math.random()*2)+1;
+                        if(rand==1)
+                            map[row][col].setType("beach_top1");
+                        else
+                            map[row][col].setType("beach_top2");
+                }
+
+                //Beach Bot    
+                if(map[row][col].isType("grass")) //If tile is land
+                    if(map[row][col+1].isType("grass") && map[row+1][col].isType("water") && map[row-1][col].isType("grass") && map[row][col-1].isType("grass")){
+                        int rand = (int) (Math.random()*2)+1;
+                        if(rand==1)
+                            map[row][col].setType("beach_bottom1");
+                        else
+                            map[row][col].setType("beach_bottom2");
+                }
+
+                //Beach Bot Right
+                if(map[row][col].isType("grass")) //If tile is land
+                    if(map[row+1][col].isType("water") && map[row][col+1].isType("water") && map[row-1][col].notType("water") && map[row][col-1].notType("water"))
+                        map[row][col].setType("beach_bottom_right");
+
+                //Beach Bot Left
+                if(map[row][col].isType("grass")) //If tile is land
+                    if(map[row-1][col].notType("water") && map[row][col+1].notType("water") && map[row][col-1].isType("water") && map[row+1][col].isType("water"))
+                        map[row][col].setType("beach_bottom_left");
+
+                //Beach Top Right
+                if(map[row][col].isType("grass")) //If tile is land
+                    if(map[row+1][col].notType("water") && map[row][col-1].notType("water") && map[row][col+1].isType("water") && map[row-1][col].isType("water")) 
+                        map[row][col].setType("beach_top_right");
+
+                //Beach Top Left
+                if(map[row][col].isType("grass")) //If tile is land
+                    if(map[row-1][col].isType("water") && map[row][col-1].isType("water") && map[row+1][col].notType("water") && map[row][col+1].notType("water"))
+                        map[row][col].setType("");
+
+                //Beach Pen Top
+                if(map[row][col].isType("grass")) //If tile is water
+                    if(map[row+1][col].isType("grass") && map[row][col+1].isType("water") && map[row][col-1].isType("water") && map[row-1][col].isType("water")) 
+                        map[row][col].setType("");
+
+                //Beach Pen Bot
+                if(map[row][col].isType("grass")) //If tile is water
+                    if(map[row+1][col].isType("water") && map[row][col+1].isType("water") && map[row][col-1].isType("water") && map[row-1][col].isType("grass")) 
+                        map[row][col].setType("");
+
+                //Beach Pen Right
+                if(map[row][col].isType("grass")) //If tile is water
+                    if(map[row+1][col].isType("water") && map[row][col+1].isType("water") && map[row][col-1].isType("grass") && map[row-1][col].isType("water")) 
+                        map[row][col].setType("");
+
+                //Beach Pen Left
+                if(map[row][col].isType("grass")) //If tile is water
+                    if(map[row+1][col].isType("water") && map[row][col+1].isType("grass") && map[row][col-1].isType("water") && map[row-1][col].isType("water"))
+                        map[row][col].setType("");
+
+                //Full Beach
+                if(map[row][col].isType("grass")) //If tile is land
+                    if(map[row+1][col].isType("water") && map[row][col+1].isType("water") && map[row][col-1].isType("water") && map[row-1][col].isType("water"))
+                        map[row][col].setType("");
+            }
+
+        }
+
+        //Pass 4 ------------------------------------------------ Add Settlements ----------------
+
+        /*
+        for(int ta = 0; ta < (size * 2) ; ta++){ //Town Ammount
+        int randRow = (int)(Math.random()*rowSize); //Get random row
+        int randCol = (int)(Math.random()*colSize); //Get random col
+
+        if(map[randRow][randCol].isType("grass")){ //If the tile is grass
+        map[randRow][randCol] = 10; //Set the tile to town
+        Settlement.addTown(randRow,randCol,ta);
+        }
+        else
+        ta-=1; //Retry
+        }
+
+        for(int ca = 0; ca < size ; ca++){ //City Ammount
+        int randRow = (int)(Math.random()*rowSize); //Get random row
+        int randCol = (int)(Math.random()*colSize); //Get random col
+
+        if(map[randRow][randCol].isType("grass")){ //If the tile is grass
+        map[randRow][randCol] = 11; //Set the tile to town
+        Settlement.addCity(randRow,randCol,ca);
+        }
+        else
+        ca-=1; //Retry
+        }
+         */
+    }
+
+    static int scale = 15;
+    public static void setSize(int x){
+        if(x==1){
+            size=1;
+            rowSize=10;
+            colSize=20;
+        }
+
+        if(x==2){
+            size=2;
+            rowSize=20;
+            colSize=40;
+        }
+
+        if(x==3){
+            size=3;
+            rowSize=50;
+            colSize=100;
+        }
+
+        waterAmt *= (size * 2);
+    }
+    private static int selected=0;
+    public static void show(Graphics g){
+        for(int row = 1; row < rowSize-1; row++){        
+            System.out.println();
+            for(int col = 1; col < colSize-1; col++){ 
+                System.out.print(map[row][col]);
+                switch(map[row][col].getType()){
+                    case "grass":
+                    g.drawImage(grass,col*scale,row*scale,scale,scale,null);
+                    break;
+
+                    case "water":
+                    g.drawImage(water,col*scale,row*scale,scale,scale,null);
+                    break;
+
+                    case "shore_bottom_right":
+                    g.drawImage(shoreBottomRight,col*scale,row*scale,scale,scale,null);
+                    break;
+
+                    case "shore_bottom_right_concave":
+                    g.drawImage(shoreBottomRightConcave,col*scale,row*scale,scale,scale,null);
+                    break;
+
+                    case "shore_bottom_left":
+                    g.drawImage(shoreBottomLeft,col*scale,row*scale,scale,scale,null);
+                    break;
+
+                    case "shore_bottom_left_concave":
+                    g.drawImage(shoreBottomLeftConcave,col*scale,row*scale,scale,scale,null);
+                    break;
+
+                    case "shore_top_left":
+                    g.drawImage(shoreTopLeft,col*scale,row*scale,scale,scale,null);
+                    break;
+
+                    case "shore_top_left_concave":
+                    g.drawImage(shoreTopLeftConcave,col*scale,row*scale,scale,scale,null);
+                    break;
+
+                    default:
+                    //g.drawImage(unknown,col*scale,row*scale,scale,scale,null);
+                    break;
+                }
+            }
+        }
+    }
+
+    public static void waypoint_up(){
+        if(selected - 1 >= 0)
+            selected--;
+    }
+
+    public static void waypoint_down(){
+        if(selected + 1 < size*3)
+            selected++;
+    }
+
+    public static Sector[][] getMap(){
+        return map;
+    }
+
+    public static int getSize(){
+        return size;
+    }
+
+    public static void texture(){
+        try
+        {
+            grass = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\grass.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            water = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\water.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shoreBottomRight = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shoreBottomRight.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shoreBottomRightConcave = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shoreBottomRightConcave.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shoreBottomLeft = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shoreBottomLeft.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shoreBottomLeftConcave = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shoreBottomLeftConcave.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shoreTopRight = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shoreTopRight.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shoreTopRightConcave = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shoreTopRightConcave.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shoreTopLeft = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shoreTopLeft.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shoreTopLeftConcave = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shoreTopLeftConcave.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shoreLeft1 = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shoreLeft1.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shoreLeft2 = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shoreLeft2.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shoreRight1 = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shoreRight1.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shoreRight2 = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shoreRight2.png"));           
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shoreBottom1 = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shoreBottom1.png"));           
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shoreBottom2 = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shoreBottom2.png"));           
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shoreTop1 = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shoreTop1.png"));
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shoreTop2 = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shoreTop2.png"));
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shorePenTop = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shorePenTop.png"));
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shorePenBot = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shorePenBot.png"));
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shorePenRight = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shorePenRight.png"));
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shorePenLeft = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shorePenLeft.png"));
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shoreHalfMidTop = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shoreHalfMidTop.png"));
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shoreHalfMidBot = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shoreHalfMidBot.png"));
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shoreHalfMidRight = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shoreHalfMidRight.png"));
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            shoreHalfMidLeft = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\shoreHalfMidLeft.png"));
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            pond = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\pond.png"));
+        }
+        catch(IOException e)
+        {
+        }
+
+        //------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        //----------------------------------------------------------------------             Beach             -------------------------------------------------------------------------
+        //------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+        try
+        {
+            beachLeft1 = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\beachLeft1.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            beachLeft2 = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\beachLeft2.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            beachRight1 = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\beachRight1.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            beachRight2 = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\beachRight2.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            beachTop1 = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\beachTop1.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            beachTop2 = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\beachTop2.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            beachBot1 = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\beachBot1.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            beachBot2 = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\beachBot2.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            beachBotRight = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\beachBotRight.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            beachBotLeft = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\beachBotLeft.png"));            
+        }
+        catch(IOException e)
+        {
+        }        
+
+        try
+        {
+            beachTopRight = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\beachTopRight.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            beachTopLeft = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\beachTopLeft.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            beachPenTop = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\beachPenTop.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            beachPenBot = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\beachPenBot.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            beachPenRight = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\beachPenRight.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            beachPenLeft = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\beachPenLeft.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            beach = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\beach.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+
+        try
+        {
+            unknown = ImageIO.read(new File("C:\\Users\\Peter 2\\Desktop\\MapGen\\Textures\\unknown.png"));            
+        }
+        catch(IOException e)
+        {
+        }
+    }
+
+    public static int getScale(){
+        return scale;
+    }
+
+    public static int getHeight(){
+        return map.length;
+    }
+
+    public static int getWidth(){
+        return map[1].length;
+    }
+}
